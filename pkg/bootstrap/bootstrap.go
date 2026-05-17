@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"courses/internal/course"
 	"courses/internal/users"
 	"fmt"
 	"log"
@@ -31,6 +32,9 @@ func DBConnection() (*gorm.DB, error) {
 	}
 	if os.Getenv("DATABASE_MIGRATE") == "true" {
 		if err := db.AutoMigrate(&users.User{}); err != nil {
+			return nil, err
+		}
+		if err := db.AutoMigrate(&course.Course{}); err != nil {
 			return nil, err
 		}
 	}
