@@ -1,13 +1,24 @@
 package users
 
 import (
+	"errors"
+	"fmt"
 	"log"
+
+	"strings"
 
 	"gorm.io/gorm"
 )
 
-type Reposiotry interface {
-	Create(user *User) error
+type Repository interface {
+	Create(user *User) (*User, error)
+	ExistsByEmail(email string) bool
+	GetAll(filter Filters, offset, limit int64) ([]User, error)
+	GetById(uuid string) (*User, error)
+	Delete(uuid string) error
+	ExistsById(uuid string) bool
+	Update(User *User) (*User, error)
+	Count(filter Filters) (int64, error)
 }
 
 type repo struct {
@@ -15,14 +26,111 @@ type repo struct {
 	db  *gorm.DB
 }
 
-func NewRepos(log *log.Logger, db *gorm.DB) Reposiotry {
+func NewRepos(log *log.Logger, db *gorm.DB) Repository {
 	return &repo{
 		log: log,
 		db:  db,
 	}
 }
 
-func (repo *repo) Create(user *User) error {
-	repo.log.Println(user)
+func (repo *repo) Create(user *User) (*User, error) {
+	if err := repo.db.Create(user).Error; err != nil {
+		repo.log.Println(err)
+		return nil, err
+	}
+	return user, nil
+}
+
+func (repo *repo) ExistsByEmail(email string) bool {
+	var count int64
+	repo.db.Model(&User{}).Where("email = ?", email).Count(&count)
+	return count > 0
+}
+
+func (repo *repo) GetAll(filter Filters, offset, limit int64) ([]User, error) {
+	var users []User
+	ctx := repo.db.Model(&User{})
+	ctx = applyFilters(ctx, filter)
+	ctx.Limit(int(limit))
+	ctx.Offset(int(offset))
+	result := ctx.Order("created_at desc").Find(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return users, nil
+}
+
+func (repo *repo) GetById(uuid string) (*User, error) {
+	var userFound User = User{Id: uuid}
+	result := repo.db.First(&userFound)
+	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &userFound, nil
+}
+
+func (repo *repo) Delete(uuid string) error {
+	user := User{Id: uuid}
+	result := repo.db.Delete(&user)
+	if result.Error != nil {
+		return result.Error
+	}
 	return nil
+}
+
+func (repo *repo) ExistsById(uuid string) bool {
+	var count int64
+	repo.db.Model(&User{}).Where("id = ?", uuid).Count(&count)
+	return count > 0
+}
+
+func (repo *repo) Update(user *User) (*User, error) {
+	infoToUpdate := make(map[string]interface{})
+	if user.Firstname != "" {
+		infoToUpdate["first_name"] = user.Firstname
+	}
+	if user.Lastname != "" {
+		infoToUpdate["last_name"] = user.Lastname
+	}
+	if user.Email != "" {
+		infoToUpdate["email"] = user.Email
+	}
+	if user.Phone != "" {
+		infoToUpdate["phone"] = user.Phone
+	}
+	result := repo.db.Model(&User{}).Where("id = ?", user.Id).Updates(infoToUpdate)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	var updatedUser User
+	if err := repo.db.Where("id = ?", user.Id).First(&updatedUser).Error; err != nil {
+		return nil, err
+	}
+
+	return &updatedUser, nil
+}
+
+func (r *repo) Count(filters Filters) (int64, error) {
+	var count int64
+	tx := r.db.Model(User{})
+	tx = applyFilters(tx, filters)
+	if err := tx.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func applyFilters(tx *gorm.DB, filters Filters) *gorm.DB {
+	if filters.Firtsname != "" {
+		filters.Firtsname = fmt.Sprintf("%%%s%%", strings.ToLower(filters.Firtsname))
+		tx = tx.Where("lower(first_name) like ?", filters.Firtsname)
+	}
+	if filters.Email != "" {
+		filters.Firtsname = fmt.Sprintf("%%%s%%", strings.ToLower(filters.Firtsname))
+		tx = tx.Where("lower(email) like ?", filters.Email)
+	}
+	return tx
 }

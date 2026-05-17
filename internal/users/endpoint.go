@@ -1,10 +1,13 @@
 package users
 
 import (
+	"courses/internal/commons"
+	"courses/pkg/meta"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"time"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 type (
@@ -23,10 +26,6 @@ type (
 		Email     string `json:"email"`
 		Phone     string `json:"phone"`
 	}
-
-	ErrorResponse struct {
-		Error string `json:"error"`
-	}
 )
 
 func MakeEnpoints(s Service) Endpoints {
@@ -41,9 +40,15 @@ func MakeEnpoints(s Service) Endpoints {
 
 func makeDeleteEndPoint(s Service) Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("delete user")
-		time.Sleep(5 * time.Second)
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		path := mux.Vars(r)
+		id := path["id"]
+		err := s.Delete(id)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error(), Status: 400})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -53,49 +58,87 @@ func makeCreateEndPoint(s Service) Controller {
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request format"})
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: "invalid request format"})
 			return
 		}
 		if req.Firstname == "" {
 			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Firstname si required"})
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: "Firstname si required"})
 			return
 		}
 		if req.Lastname == "" {
 			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Lastname si required"})
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: "Lastname si required"})
 			return
 		}
-		err = s.Create(req)
+		userCreated, err := s.Create(req)
 		if err != nil {
 			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(ErrorResponse{err.Error()})
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
 			return
 		}
-		json.NewEncoder(w).Encode(req)
+		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: userCreated, Status: 202})
 	}
 }
 
 func makeUpdateEndPoint(s Service) Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("update user")
-		time.Sleep(5 * time.Second)
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		var req CreateUserRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: "invalid request format"})
+			return
+		}
+		path := mux.Vars(r)
+		id := path["id"]
+		userUpdated, err := s.Update(id, req)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: userUpdated, Status: 200})
 	}
 }
 
 func makeGetEndPoint(s Service) Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("get user")
-		time.Sleep(5 * time.Second)
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		path := mux.Vars(r)
+		id := path["id"]
+		userFound, err := s.GetById(id)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: userFound, Status: 200})
 	}
 }
 
 func makeGetAllEndPoint(s Service) Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Get All users")
-		time.Sleep(5 * time.Second)
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		params := r.URL.Query()
+		filters := Filters{
+			Firtsname: params.Get("first_name"),
+			Email:     params.Get("email"),
+		}
+		limit, _ := strconv.ParseInt(params.Get("limit"), 10, 64)
+		page, _ := strconv.ParseInt(params.Get("page"), 10, 64)
+		totalUsers, err := s.Count(filters)
+		if err != nil {
+			w.WriteHeader(500)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
+			return
+		}
+
+		meta, _ := meta.New(totalUsers, page, limit)
+		usersFound, err := s.GetAll(filters, meta.Offset(), meta.Limit())
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: usersFound, Status: 200, Meta: meta})
 	}
 }
