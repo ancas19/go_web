@@ -1,6 +1,7 @@
 package users
 
 import (
+	"courses/internal/domain"
 	"fmt"
 	"log"
 )
@@ -12,11 +13,11 @@ type (
 	}
 
 	Service interface {
-		Create(request CreateUserRequest) (*User, error)
-		GetAll(filter Filters, offset, limit int64) ([]User, error)
-		GetById(uuid string) (*User, error)
+		Create(request CreateUserRequest) (*domain.User, error)
+		GetAll(filter Filters, offset, limit int64) ([]domain.User, error)
+		GetById(uuid string) (*domain.User, error)
 		Delete(uuid string) error
-		Update(uuid string, request CreateUserRequest) (*User, error)
+		Update(uuid string, request CreateUserRequest) (*domain.User, error)
 		Count(filter Filters) (int64, error)
 	}
 	service struct {
@@ -32,11 +33,11 @@ func NewService(log *log.Logger, repo Repository) Service {
 	}
 }
 
-func (s service) Create(request CreateUserRequest) (*User, error) {
+func (s service) Create(request CreateUserRequest) (*domain.User, error) {
 	if s.repo.ExistsByEmail(request.Email) {
 		return nil, fmt.Errorf("Already exist a user with that email %s", request.Email)
 	}
-	user := User{
+	user := domain.User{
 		Firstname: request.Firstname,
 		Lastname:  request.Lastname,
 		Email:     request.Email,
@@ -49,7 +50,7 @@ func (s service) Create(request CreateUserRequest) (*User, error) {
 	return userCreated, nil
 }
 
-func (s service) GetAll(filter Filters, offset, limit int64) ([]User, error) {
+func (s service) GetAll(filter Filters, offset, limit int64) ([]domain.User, error) {
 	usersFound, err := s.repo.GetAll(filter, offset, limit)
 	if err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (s service) GetAll(filter Filters, offset, limit int64) ([]User, error) {
 	return usersFound, nil
 }
 
-func (s service) GetById(uuid string) (*User, error) {
+func (s service) GetById(uuid string) (*domain.User, error) {
 	userFound, err := s.repo.GetById(uuid)
 	if err != nil {
 		return nil, err
@@ -83,12 +84,12 @@ func (s service) Delete(uuid string) error {
 	return nil
 }
 
-func (s *service) Update(uuid string, request CreateUserRequest) (*User, error) {
+func (s *service) Update(uuid string, request CreateUserRequest) (*domain.User, error) {
 	existsUser := s.repo.ExistsById(uuid)
 	if !existsUser {
 		return nil, fmt.Errorf("Not exists a user with that id %s", uuid)
 	}
-	user := User{
+	user := domain.User{
 		Id:        uuid,
 		Firstname: request.Firstname,
 		Lastname:  request.Lastname,

@@ -35,6 +35,7 @@ func main() {
 	router.HandleFunc("/users/{id}", userEnpoints.Get).Methods("GET")
 	router.HandleFunc("/users-all", userEnpoints.GetAll).Methods("GET")
 	router.HandleFunc("/course", courseEndpoits.Create).Methods("POST")
+	router.HandleFunc("/course/{id}", courseEndpoits.Update).Methods("PATCH")
 	router.HandleFunc("/course-all", courseEndpoits.GetAll).Methods("GET")
 	router.HandleFunc("/course/{id}", courseEndpoits.Get).Methods("GET")
 	router.HandleFunc("/course/{id}", courseEndpoits.Delete).Methods("DELETE")

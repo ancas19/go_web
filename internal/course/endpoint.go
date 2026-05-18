@@ -35,6 +35,7 @@ func MakeEnpoints(s Service) Endpoints {
 		Delete: makeDeleteEndPoint(s),
 		Get:    makeGetEndPoint(s),
 		GetAll: makeGetAllEndPoint(s),
+		Update: makeUpdateEndPoint(s),
 	}
 }
 
@@ -126,5 +127,26 @@ func makeGetAllEndPoint(s Service) Controller {
 			return
 		}
 		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: usersFound, Status: 200, Meta: meta})
+	}
+}
+
+func makeUpdateEndPoint(s Service) Controller {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req CreateCourseReq
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: "invalid request format"})
+			return
+		}
+		path := mux.Vars(r)
+		id := path["id"]
+		userUpdated, err := s.Update(id, req)
+		if err != nil {
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(commons.GeneralResponse{Error: err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(commons.GeneralResponse{Data: userUpdated, Status: 200})
 	}
 }

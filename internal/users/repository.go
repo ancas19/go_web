@@ -1,6 +1,7 @@
 package users
 
 import (
+	"courses/internal/domain"
 	"errors"
 	"fmt"
 	"log"
@@ -10,13 +11,13 @@ import (
 )
 
 type Repository interface {
-	Create(user *User) (*User, error)
+	Create(user *domain.User) (*domain.User, error)
 	ExistsByEmail(email string) bool
-	GetAll(filter Filters, offset, limit int64) ([]User, error)
-	GetById(uuid string) (*User, error)
+	GetAll(filter Filters, offset, limit int64) ([]domain.User, error)
+	GetById(uuid string) (*domain.User, error)
 	Delete(uuid string) error
 	ExistsById(uuid string) bool
-	Update(User *User) (*User, error)
+	Update(User *domain.User) (*domain.User, error)
 	Count(filter Filters) (int64, error)
 }
 
@@ -32,7 +33,7 @@ func NewRepos(log *log.Logger, db *gorm.DB) Repository {
 	}
 }
 
-func (repo *repo) Create(user *User) (*User, error) {
+func (repo *repo) Create(user *domain.User) (*domain.User, error) {
 	if err := repo.db.Create(user).Error; err != nil {
 		repo.log.Println(err)
 		return nil, err
@@ -42,13 +43,13 @@ func (repo *repo) Create(user *User) (*User, error) {
 
 func (repo *repo) ExistsByEmail(email string) bool {
 	var count int64
-	repo.db.Model(&User{}).Where("email = ?", email).Count(&count)
+	repo.db.Model(&domain.User{}).Where("email = ?", email).Count(&count)
 	return count > 0
 }
 
-func (repo *repo) GetAll(filter Filters, offset, limit int64) ([]User, error) {
-	var users []User
-	ctx := repo.db.Model(&User{})
+func (repo *repo) GetAll(filter Filters, offset, limit int64) ([]domain.User, error) {
+	var users []domain.User
+	ctx := repo.db.Model(&domain.User{})
 	ctx = applyFilters(ctx, filter)
 	ctx.Limit(int(limit))
 	ctx.Offset(int(offset))
@@ -59,8 +60,8 @@ func (repo *repo) GetAll(filter Filters, offset, limit int64) ([]User, error) {
 	return users, nil
 }
 
-func (repo *repo) GetById(uuid string) (*User, error) {
-	var userFound User = User{Id: uuid}
+func (repo *repo) GetById(uuid string) (*domain.User, error) {
+	var userFound domain.User = domain.User{Id: uuid}
 	result := repo.db.First(&userFound)
 	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -72,7 +73,7 @@ func (repo *repo) GetById(uuid string) (*User, error) {
 }
 
 func (repo *repo) Delete(uuid string) error {
-	user := User{Id: uuid}
+	user := domain.User{Id: uuid}
 	result := repo.db.Delete(&user)
 	if result.Error != nil {
 		return result.Error
@@ -82,11 +83,11 @@ func (repo *repo) Delete(uuid string) error {
 
 func (repo *repo) ExistsById(uuid string) bool {
 	var count int64
-	repo.db.Model(&User{}).Where("id = ?", uuid).Count(&count)
+	repo.db.Model(&domain.User{}).Where("id = ?", uuid).Count(&count)
 	return count > 0
 }
 
-func (repo *repo) Update(user *User) (*User, error) {
+func (repo *repo) Update(user *domain.User) (*domain.User, error) {
 	infoToUpdate := make(map[string]interface{})
 	if user.Firstname != "" {
 		infoToUpdate["first_name"] = user.Firstname
@@ -100,11 +101,11 @@ func (repo *repo) Update(user *User) (*User, error) {
 	if user.Phone != "" {
 		infoToUpdate["phone"] = user.Phone
 	}
-	result := repo.db.Model(&User{}).Where("id = ?", user.Id).Updates(infoToUpdate)
+	result := repo.db.Model(&domain.User{}).Where("id = ?", user.Id).Updates(infoToUpdate)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	var updatedUser User
+	var updatedUser domain.User
 	if err := repo.db.Where("id = ?", user.Id).First(&updatedUser).Error; err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func (repo *repo) Update(user *User) (*User, error) {
 
 func (r *repo) Count(filters Filters) (int64, error) {
 	var count int64
-	tx := r.db.Model(User{})
+	tx := r.db.Model(domain.User{})
 	tx = applyFilters(tx, filters)
 	if err := tx.Count(&count).Error; err != nil {
 		return 0, err
