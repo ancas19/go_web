@@ -2,6 +2,7 @@ package main
 
 import (
 	"courses/internal/course"
+	"courses/internal/enrollment"
 	"courses/internal/users"
 	"courses/pkg/bootstrap"
 	"net/http"
@@ -22,12 +23,15 @@ func main() {
 
 	userRepo := users.NewRepos(log, database)
 	courseRepo := course.NewRepo(database, log)
+	enrollmentRepo := enrollment.NewRepo(log, database)
 
 	usersService := users.NewService(log, userRepo)
 	courseService := course.NewService(log, courseRepo)
+	enrollmentService := enrollment.NewService(log, enrollmentRepo, usersService, courseService)
 
 	userEnpoints := users.MakeEnpoints(usersService)
 	courseEndpoits := course.MakeEnpoints(courseService)
+	enrollmentEndpoints := enrollment.MakeEnpoints(enrollmentService)
 
 	router.HandleFunc("/users", userEnpoints.Create).Methods("POST")
 	router.HandleFunc("/users/{id}", userEnpoints.Update).Methods("PATCH")
@@ -39,6 +43,7 @@ func main() {
 	router.HandleFunc("/course-all", courseEndpoits.GetAll).Methods("GET")
 	router.HandleFunc("/course/{id}", courseEndpoits.Get).Methods("GET")
 	router.HandleFunc("/course/{id}", courseEndpoits.Delete).Methods("DELETE")
+	router.HandleFunc("/enrollments", enrollmentEndpoints.Create).Methods("POST")
 
 	server := &http.Server{
 		Handler: router,

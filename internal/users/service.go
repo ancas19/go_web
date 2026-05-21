@@ -16,6 +16,7 @@ type (
 		Create(request CreateUserRequest) (*domain.User, error)
 		GetAll(filter Filters, offset, limit int64) ([]domain.User, error)
 		GetById(uuid string) (*domain.User, error)
+		ExistsById(uuid string) error
 		Delete(uuid string) error
 		Update(uuid string, request CreateUserRequest) (*domain.User, error)
 		Count(filter Filters) (int64, error)
@@ -59,6 +60,14 @@ func (s service) GetAll(filter Filters, offset, limit int64) ([]domain.User, err
 		return nil, fmt.Errorf("Users not found")
 	}
 	return usersFound, nil
+}
+
+func (s service) ExistsById(uuid string) error {
+	existsUser := s.repo.ExistsById(uuid)
+	if !existsUser {
+		return fmt.Errorf("Not exists an user with that id %s", uuid)
+	}
+	return nil
 }
 
 func (s service) GetById(uuid string) (*domain.User, error) {

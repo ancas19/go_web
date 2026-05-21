@@ -15,6 +15,7 @@ type (
 		Count(name string) (int64, error)
 		GetAllCourses(name string, page, limit int64) ([]domain.Course, error)
 		Update(idCourse string, courseRequest CreateCourseReq) (*domain.Course, error)
+		ExistsById(uuid string) error
 	}
 
 	service struct {
@@ -147,6 +148,17 @@ func (s *service) mapDate(date string) (*time.Time, error) {
 		return nil, err
 	}
 	return &dateParsed, nil
+}
+
+func (s *service) ExistsById(uuid string) error {
+	existsCourse, err := s.repo.ExistsById(uuid)
+	if err != nil {
+		return err
+	}
+	if !existsCourse {
+		return fmt.Errorf("NOt exists a course with that id %s", uuid)
+	}
+	return nil
 }
 
 func findInfoToUpdate(name string, startDate, endDate *time.Time) map[string]any {
